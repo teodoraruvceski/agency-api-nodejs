@@ -1,0 +1,26 @@
+{
+  "name": "agency-api-nodejs",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/teodoraruvceski/agency-api-nodejs.git"
+  },
+  "author": "teodora ruvceski",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/teodoraruvceski/agency-api-nodejs/issues"
+  },
+  "homepage": "https://github.com/teodoraruvceski/agency-api-nodejs#readme",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.2.2",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "uuid": "^9.0.0",
+    "winston": "^3.8.2"
+  }
+}
