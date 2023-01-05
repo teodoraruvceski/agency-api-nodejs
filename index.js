@@ -1,9 +1,14 @@
 const express = require('express');
+var bodyParser = require('body-parser');
+var jsonParser = bodyParser.json();
 const uuid = require('uuid');
 const { createClient } =require("@supabase/supabase-js");
 const { createLogger, format, transports } = require("winston");
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
+const jwt_decode=require('jwt-decode');
 const app = express();
+const TOKEN_KEY="dfgh234ghj2345bhnm345jkl678nbodxj7";
 app.use(cors({
     origin: '*'
 }));
@@ -24,45 +29,139 @@ const logger = createLogger({
   exceptionHandlers: [new transports.File({ filename: "exceptions.log" })],
   rejectionHandlers: [new transports.File({ filename: "rejections.log" })],
 });
-app.get('/getPspUrl', (req, res) => 
+
+app.get('/agency-url-success-payment',jsonParser, async(req, res) => 
+{
+  console.log("getFrontUrlSuccessfulRegistration");
+    logger.info(`from:${req.url}. sending response: http://localhost:3000/successfulPayment`);
+    res.send("http://localhost:3000/successfulPayment");
+});
+app.post('/getPspUrl',jsonParser, async(req, res) => 
 {
   console.log("getPspUrl");
     logger.info(`from:${req.url}. sending response: http://localhost:3001/home`);
     //ask bek psp for url
     res.send("http://localhost:3001/home");
 });
-app.post('/registration',async(req,res)=>
+app.get('/getPackages',async(req,res)=>
 {
-  console.log(req.query);
-  const email=req.query.c.email;
-  const name=req.query.c.name;
-  const password=req.query.c.password;
-  const pib=req.query.c.pib;
-  const paid=req.query.c.paid;
+  const token=req.headers.authentification
+  console.log(token);
+  const c=jwt_decode(token);
+  console.log(c);
+  // if(c.exp < dateNow.getTime()/1000)
+  // {
+  //   console.log("error");
+  //   res.send("error");
+  // }
+  try{
+    const { data, error } = await supabase
+    .from('companies')
+    .select()
+    .eq('email', c.email);
+    console.log(data);
+    if(data!=null && data[0].password===c.password)
+    {
+      try{
+        const {data,error}=await supabase
+        .from('packages')
+        .select();
+        res.send(data);
+      }
+      catch(e)
+      {
+        console.log(e);
+        res.send("error");
+      }
+    }
+    else{
+      res.send("error");
+    }
+    
+  }
+  catch(e)
+  {
+    console.log(e);
+  }
+});
+app.post('/buyPackage',jsonParser,async(req,res)=>
+{
+  const package=req.body;
+  console.log(package);
+  //check token...
+  console.log("sending url");
+  res.send("http://localhost:3001/home");
+  console.log("sent");
+});
+app.post('/registration',jsonParser,async(req,res)=>
+{
+  console.log('Registrating company:',req.body);
+  const email=req.body.email;
+  const name=req.body.name;
+  const password=req.body.password;
+  const pib=req.body.pib;
+  const paid=req.body.paid;
   const id=uuid.v4();
-  console.log(id);
 try{
 
-  const {data}= supabase
+  const {data,error}= await supabase
     .from('companies')
     .insert([
         {email,name,password,paid,pib,id}
     ])
     .single();
+    console.log('sending response:'+id);
     res.send(id);
 }
 catch(e)
 {
   console.log(e);
 }
-  
-  
 });
-app.post('/paid-registration', (req, res) => {
-  console.log("update");
-    const id=req.query.id;
+app.post('/login',jsonParser,async(req,res)=>
+{
+  console.log('Login company:',req.body);
+  const email=req.body.email;
+  const password=req.body.password;
+  try{
+    const { data, error } = await supabase
+    .from('companies')
+    .select()
+    .eq('email', email);
+    console.log('data:'+JSON.stringify(data));
+    const user=data[0];
+    if(data[0].paid===false)
+    {
+      res.send("not-paid_"+data[0].id);
+    }
+    if(data[0].password===password)
+    {
+      
+      const token = jwt.sign(
+        data[0],
+        TOKEN_KEY,
+        {
+          expiresIn: "2h",
+        }
+      );
+      console.log('sending response:'+token);
+      res.send(token);
+    }
+    else{
+      res.send(undefined);
+    }
+    
+  }
+  catch(e)
+  {
+    console.log(e);
+  }
+});
+app.post('/paid-registration',async (req, res) => {
+  const id=req.query.id;
+  console.log("update: ",id);
     try{
-      const {data}= supabase
+      const {data,error}= await supabase
       .from('companies')
       .update([
           {paid:true}
@@ -73,7 +172,7 @@ app.post('/paid-registration', (req, res) => {
     {
       console.log(e)
     }
-    
+    res.send('ok');
 });
 app.listen(6001, () => console.log(`Server Started on 6001`));
 

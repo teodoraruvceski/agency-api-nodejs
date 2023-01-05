@@ -18,8 +18,11 @@
   "homepage": "https://github.com/teodoraruvceski/agency-api-nodejs#readme",
   "dependencies": {
     "@supabase/supabase-js": "^2.2.2",
+    "body-parser": "^1.20.1",
     "cors": "^2.8.5",
     "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.0",
+    "jwt-decode": "^3.1.2",
     "uuid": "^9.0.0",
     "winston": "^3.8.2"
   }
