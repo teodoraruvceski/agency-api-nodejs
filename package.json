@@ -18,6 +18,7 @@
   "homepage": "https://github.com/teodoraruvceski/agency-api-nodejs#readme",
   "dependencies": {
     "@supabase/supabase-js": "^2.2.2",
+    "axios": "^1.2.4",
     "body-parser": "^1.20.1",
     "cors": "^2.8.5",
     "express": "^4.18.2",

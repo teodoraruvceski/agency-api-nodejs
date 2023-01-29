@@ -8,10 +8,12 @@ const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const jwt_decode=require('jwt-decode');
 const app = express();
+const axios=require('axios');
 const TOKEN_KEY="dfgh234ghj2345bhnm345jkl678nbodxj7";
 app.use(cors({
     origin: '*'
 }));
+const psp_api="http://localhost:5000"
 const supabaseUrl = 'https://qxvuqmzydpwwqvldclve.supabase.co'
 const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4dnVxbXp5ZHB3d3F2bGRjbHZlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTY3MjE1NjAwNCwiZXhwIjoxOTg3NzMyMDA0fQ.P5kK_j5vTzKzNcEZOVEkOqIMmAetTFEND7Q7PCTYTnI"
 const supabase = createClient(supabaseUrl, supabaseKey)
@@ -101,7 +103,7 @@ app.post('/registration',jsonParser,async(req,res)=>
   const password=req.body.password;
   const pib=req.body.pib;
   const paid=req.body.paid;
-  const id=uuid.v4();
+  const id='reg_'+uuid.v4();
 try{
 
   const {data,error}= await supabase
@@ -111,6 +113,9 @@ try{
     ])
     .single();
     console.log('sending response:'+id);
+    const info={payment_id:id,amount:10};
+    const data2=await axios.post(`${psp_api}/new-payment`,info);
+    console.log(data2);
     res.send(id);
 }
 catch(e)
