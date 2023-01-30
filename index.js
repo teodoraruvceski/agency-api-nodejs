@@ -2,7 +2,8 @@ const express = require('express');
 var bodyParser = require('body-parser');
 var jsonParser = bodyParser.json();
 const uuid = require('uuid');
-const { createClient } =require("@supabase/supabase-js");
+const repo=require('./Repository');
+
 const { createLogger, format, transports } = require("winston");
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
@@ -14,9 +15,7 @@ app.use(cors({
     origin: '*'
 }));
 const psp_api="http://localhost:5000"
-const supabaseUrl = 'https://qxvuqmzydpwwqvldclve.supabase.co'
-const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4dnVxbXp5ZHB3d3F2bGRjbHZlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTY3MjE1NjAwNCwiZXhwIjoxOTg3NzMyMDA0fQ.P5kK_j5vTzKzNcEZOVEkOqIMmAetTFEND7Q7PCTYTnI"
-const supabase = createClient(supabaseUrl, supabaseKey)
+
 const logLevels = {
   fatal: 0,
   error: 1,
@@ -38,6 +37,18 @@ app.get('/agency-url-success-payment',jsonParser, async(req, res) =>
     logger.info(`from:${req.url}. sending response: http://localhost:3000/successfulPayment`);
     res.send("http://localhost:3000/successfulPayment");
 });
+app.get('/agency-url-error-payment',jsonParser, async(req, res) => 
+{
+  console.log("getFrontUrlErrorRegistration");
+    logger.info(`from:${req.url}. sending response: http://localhost:3000/errorPayment`);
+    res.send("http://localhost:3000/errorPayment");
+});
+app.get('/agency-url-cancel-payment',jsonParser, async(req, res) => 
+{
+  console.log("getFrontUrlCancelRegistration");
+    logger.info(`from:${req.url}. sending response: http://localhost:3000/home`);
+    res.send("http://localhost:3000/home");
+});
 app.post('/getPspUrl',jsonParser, async(req, res) => 
 {
   console.log("getPspUrl");
@@ -47,7 +58,8 @@ app.post('/getPspUrl',jsonParser, async(req, res) =>
 });
 app.get('/getPackages',async(req,res)=>
 {
-  const token=req.headers.authentification
+  console.log('getPackages')
+  const token=req.headers.authentication
   console.log(token);
   const c=jwt_decode(token);
   console.log(c);
@@ -57,18 +69,89 @@ app.get('/getPackages',async(req,res)=>
   //   res.send("error");
   // }
   try{
-    const { data, error } = await supabase
-    .from('companies')
-    .select()
-    .eq('email', c.email);
+    const data =await repo.GetUserByEmail(c.email);
     console.log(data);
-    if(data!=null && data[0].password===c.password)
+    if(data!=null && data.password===c.password)
     {
       try{
-        const {data,error}=await supabase
-        .from('packages')
-        .select();
+        const data=await repo.GetPackages();
         res.send(data);
+      }
+      catch(e)
+      {
+        console.log(e);
+        res.send("error");
+      }
+    }
+    else{
+      res.send("error");
+    }
+    
+  }
+  catch(e)
+  {
+    console.log(e);
+  }
+});
+app.get('/getCompanies',async(req,res)=>
+{
+  console.log('getComapnies')
+  const token=req.headers.authentication
+  console.log(token);
+  const c=jwt_decode(token);
+  console.log(c);
+  // if(c.exp < dateNow.getTime()/1000)
+  // {
+  //   console.log("error");
+  //   res.send("error");
+  // }
+  try{
+    const data =await repo.GetUserByEmail(c.email);
+    console.log(data);
+    if(data!=null && data.password===c.password)
+    {
+      try{
+        const data=await repo.GetCompanies();
+        res.send(data);
+      }
+      catch(e)
+      {
+        console.log(e);
+        res.send("error");
+      }
+    }
+    else{
+      res.send("error");
+    }
+    
+  }
+  catch(e)
+  {
+    console.log(e);
+  }
+});
+app.get('/getPackage',async(req,res)=>
+{
+  const id=req.query.id;
+  const token=req.headers.authentication
+  console.log(token);
+  const c=jwt_decode(token);
+  console.log(c);
+  // if(c.exp < dateNow.getTime()/1000)
+  // {
+  //   console.log("error");
+  //   res.send("error");
+  // }
+  try{
+    const data = await repo.GetUserByEmail(c.email);
+    if(data!=null && data.password===c.password)
+    {
+      try{
+        const data=await repo.GetPackage(id);
+        if(data!==null)
+          res.send(data);
+        else
+          res.send('error');
       }
       catch(e)
       {
@@ -88,12 +171,69 @@ app.get('/getPackages',async(req,res)=>
 });
 app.post('/buyPackage',jsonParser,async(req,res)=>
 {
-  const package=req.body;
-  console.log(package);
-  //check token...
-  console.log("sending url");
-  res.send("http://localhost:3001/home");
-  console.log("sent");
+  const token=req.headers.authentication
+  console.log(token);
+  const c=jwt_decode(token);
+  console.log(c);
+  const id=req.body.id;
+  console.log(id);
+  const data=await repo.GetPackage(id);
+  if(data!=null)
+  {
+    const pack=data;
+    const info={payment_id:'purch_'+id+'_'+c.id+'_'+uuid.v4(),amount:pack.price};
+      const data2=await axios.post(`${psp_api}/new-payment`,info);
+      console.log(data2);
+    //check token...
+    console.log("sending url");
+    res.send("http://localhost:3001/home?paymentId="+info.payment_id);
+    console.log("sent");
+  }
+  else 
+  res.send('error');
+  
+});
+app.post('/buyPremium',jsonParser,async(req,res)=>
+{
+  console.log('buyPremium');
+  const price=100;
+  const token=req.headers.authentication
+  console.log(token);
+  const c=jwt_decode(token);
+  console.log(c);
+  const data =await repo.GetUserByEmail(c.email);
+  console.log(data);
+  if(data!=null && data.password===c.password)
+  {
+    const info={payment_id:'purch_premium'+'_'+c.id+'_'+uuid.v4(),amount:price};
+    const data2=await axios.post(`${psp_api}/new-payment`,info);
+    console.log(data2.data);
+    console.log("sending url");
+    res.send(data2.data.url+'?paymentId='+info.payment_id);
+    console.log("sent");
+  }
+  else 
+  res.send('error');
+  
+});
+app.post('/updatePremium',jsonParser,async(req,res)=>
+{
+  console.log('buyPremium');
+  const id=req.body.id;
+  const token=req.headers.authentication
+  console.log(token);
+  const c=jwt_decode(token);
+  console.log(c);
+  const data =await repo.GetUserByEmail(c.email);
+  console.log(data);
+  if(data!=null && data.password===c.password && id===c.id)
+  {
+   const dataa=repo.UpdatePremium(id);
+   res.send({successful:true});
+  }
+  else 
+  res.send({successful:false,message:'Invalid data.'});
+  
 });
 app.post('/registration',jsonParser,async(req,res)=>
 {
@@ -103,20 +243,23 @@ app.post('/registration',jsonParser,async(req,res)=>
   const password=req.body.password;
   const pib=req.body.pib;
   const paid=req.body.paid;
+  const role=req.body.role
   const id='reg_'+uuid.v4();
 try{
-
-  const {data,error}= await supabase
-    .from('companies')
-    .insert([
-        {email,name,password,paid,pib,id}
-    ])
-    .single();
+  const check=await repo.GetUserByEmail(email);
+  if(check!==null)
+    res.send({successful:false,message:'User with email already exist.'});
+  const data= await repo.AddCompany({email,name,password,paid,pib,id,role});
+  if(role==='company')
+  {
     console.log('sending response:'+id);
     const info={payment_id:id,amount:10};
     const data2=await axios.post(`${psp_api}/new-payment`,info);
     console.log(data2);
-    res.send(id);
+    res.send({successful:true,id:id});
+
+  }
+  res.send({successful:true,message:''});
 }
 catch(e)
 {
@@ -129,32 +272,59 @@ app.post('/login',jsonParser,async(req,res)=>
   const email=req.body.email;
   const password=req.body.password;
   try{
-    const { data, error } = await supabase
-    .from('companies')
-    .select()
-    .eq('email', email);
-    console.log('data:'+JSON.stringify(data));
-    const user=data[0];
-    if(data[0].paid===false)
+    const data= await repo.GetUserByEmail(email);
+    if(data!==null)
     {
-      res.send("not-paid_"+data[0].id);
-    }
-    if(data[0].password===password)
-    {
-      
-      const token = jwt.sign(
-        data[0],
-        TOKEN_KEY,
+      if(data.role==='company')
+      {
+        console.log('issa company')
+        console.log('data:'+JSON.stringify(data));
+        const user=data;
+        if(data.paid===false)
         {
-          expiresIn: "2h",
+          res.send({successful:false,id:data.id,message:'NOT-PAID'});
         }
-      );
-      console.log('sending response:'+token);
-      res.send(token);
+        if(data.password===password)
+        {
+          const token = jwt.sign(
+            data,
+            TOKEN_KEY,
+            {
+              expiresIn: "2h",
+            }
+          );
+          console.log('sending response:'+token);
+          res.send({successful:true,token:token});
+        }
+        else{
+          res.send({successful:false,message:'Invalid email or password'});
+        }
+      }
+      else
+      {
+        console.log('issa user')
+        if(data.password===password)
+        {
+          const token = jwt.sign(
+            data,
+            TOKEN_KEY,
+            {
+              expiresIn: "2h",
+            }
+          );
+          console.log('sending response:'+token);
+          res.send({successful:true,token:token});
+        }
+        else{
+          res.send({successful:false,message:'Invalid email or password'});
+        }
+      }
+      
     }
     else{
-      res.send(undefined);
+      res.send({successful:false,message:'Invalid email or password'});
     }
+    
     
   }
   catch(e)
@@ -166,12 +336,7 @@ app.post('/paid-registration',async (req, res) => {
   const id=req.query.id;
   console.log("update: ",id);
     try{
-      const {data,error}= await supabase
-      .from('companies')
-      .update([
-          {paid:true}
-      ])
-      .eq('id',id)
+      const data= await repo.UpdatePaid(id);
     }
     catch(e)
     {
@@ -179,7 +344,36 @@ app.post('/paid-registration',async (req, res) => {
     }
     res.send('ok');
 });
-app.listen(6001, () => console.log(`Server Started on 6001`));
+app.get('/addPackageToCompany',async(req,res)=>
+{
+  console.log('addPackage')
+  const token=req.headers.authentication
+  const c=jwt_decode(token);
+  const paymentId=req.query.paymentId;
+  const packageId=paymentId.split('_')[1];
+  const companyId=paymentId.split('_')[2];
+  // if(c.exp < dateNow.getTime()/1000)
+  // {
+  //   console.log("error");
+  //   res.send("error");
+  // }
+  try{
+    const data =await repo.GetUserByEmail(c.email);
+    if(data!=null && data.password===c.password)
+    {
+        const data=await repo.AddPackageToCompany({company_id:companyId,package_id:Number(packageId),purchase_date:new Date()})
+        res.send(data);
+    }
+  }
+    catch(e)
+    {
+      console.log(e)
+      res.send('error');
+    }
+});
+app.listen(6001, () => {
+  console.log(`Server Started on 6001`);
+});
 
 
 // public int id { get; set; }
