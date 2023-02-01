@@ -14,6 +14,17 @@ exports.GetUserByEmail=async function(email)
     else 
         return null;
 }
+exports.GetUserByPib=async function(pib)
+{
+    const { data, error } = await supabase
+                                .from('companies')
+                                .select()
+                                .eq('pib', pib);
+    if(data!=null && data.length>0)
+        return data[0];
+    else 
+        return null;
+}
 exports.GetCompanies=async function(email)
 {
     const { data, error } = await supabase
@@ -38,6 +49,8 @@ exports.GetPackage=async function(id)
         .from('packages')
         .select()
         .eq('id',id);
+    console.log(data);
+    console.log(error);
     if(data!=null && data.length>0)
         return data[0];
     else 
