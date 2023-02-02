@@ -12,7 +12,8 @@ const jwt_decode=require('jwt-decode');
 const app = express();
 const axios=require('axios');
 const TOKEN_KEY="dfgh234ghj2345bhnm345jkl678nbodxj7";
-var codes= new Map();
+var codes= {};
+const port=6001;
 app.use(cors({
     origin: '*'
 }));
@@ -26,9 +27,7 @@ const logLevels = {
   fatal: 0,
   error: 1,
   warn: 2,
-  info: 3,
-  debug: 4,
-  trace: 5,
+  info: 3
 };
 const logger = createLogger({
   levels:logLevels,
@@ -36,34 +35,44 @@ const logger = createLogger({
   exceptionHandlers: [new transports.File({ filename: "exceptions.log" })],
   rejectionHandlers: [new transports.File({ filename: "rejections.log" })],
 });
+app.listen(port, () => {
+  console.log(`Server Started on ${port}`);
+  logger.info(`Time: ${new Date()} Message: Server started on ${port}.`);
+  // var mymap={}
+  // mymap['tea']='123';
+  // console.log(mymap);
+  // delete mymap['tea'];
+  // console.log(mymap);
 
+});
 app.get('/agency-url-success-payment',jsonParser, async(req, res) => 
 {
   console.log("getFrontUrlSuccessfulRegistration");
-    logger.info(`from:${req.url}. sending response: http://localhost:3000/successfulPayment`);
-    res.send("http://localhost:3000/successfulPayment");
+  logger.info(`Time: ${new Date()} Message: Requested url for successful payment.`);
+  res.send("http://localhost:3000/successfulPayment");
 });
 app.get('/agency-url-error-payment',jsonParser, async(req, res) => 
 {
   console.log("getFrontUrlErrorRegistration");
-    logger.info(`from:${req.url}. sending response: http://localhost:3000/errorPayment`);
-    res.send("http://localhost:3000/errorPayment");
+  logger.info(`Time: ${new Date()} Message: Requested url for error payment.`);
+  res.send("http://localhost:3000/errorPayment");
 });
 app.get('/agency-url-cancel-payment',jsonParser, async(req, res) => 
 {
   console.log("getFrontUrlCancelRegistration");
-    logger.info(`from:${req.url}. sending response: http://localhost:3000/home`);
-    res.send("http://localhost:3000/home");
+  logger.info(`Time: ${new Date()} Message: Requested url for canceled payment.`);
+  res.send("http://localhost:3000/home");
 });
 app.post('/getPspUrl',jsonParser, async(req, res) => 
 {
   console.log("getPspUrl");
-    logger.info(`from:${req.url}. sending response: http://localhost:3001/home`);
-    //ask bek psp for url
-    res.send("http://localhost:3001/home");
+  logger.info(`Time: ${new Date()} Message: Requested psp front url. Sending request to psp service.`);
+  const resp=await axios.get(`${psp_api}/get-psp-url`);
+  res.send(resp.data);
 });
 app.get('/getPackages',async(req,res)=>
 {
+  
   console.log('getPackages')
   const token=req.headers.authentication
   console.log(token);
@@ -81,19 +90,23 @@ app.get('/getPackages',async(req,res)=>
     {
       if(data.role!=='company')
       {
+        logger.error(`Time: ${new Date()} Message: Requested packages.Token not valid.`);
         res.send({successful:false,message:'Neautorizovan pristup.'});
       }
       try{
         const data=await repo.GetPackages();
+        logger.info(`Time: ${new Date()} Message: Requested packages from database.`);
         res.send({successful:true,data:data});
       }
       catch(e)
       {
         console.log(e);
+        logger.error(`Time: ${new Date()} Message: Requested packages.Token not valid.`);
         res.send({successful:false,message:'Doslo je do greske.'});
       }
     }
     else{
+      logger.error(`Time: ${new Date()} Message: Requested packages.Token not valid.`);
       res.send({successful:false,message:'Neautorizovan pristup.'});
     }
     
@@ -122,19 +135,23 @@ app.get('/getCompanies',async(req,res)=>
     {
       if(data.role!=='user')
       {
+        logger.error(`Time: ${new Date()} Message: Requested companies.Token not valid.`);
         res.send({successful:false,message:'Neautorizovan pristup.'});
       }
       try{
         const data=await repo.GetCompanies();
+        logger.info(`Time: ${new Date()} Message: Requested companies from database.`);
         res.send({successful:true,data:data});
       }
       catch(e)
       {
         console.log(e);
+        logger.error(`Time: ${new Date()} Message: Requested companies.Token not valid.`);
         res.send({successful:false,message:'Doslo je do greske.'});
       }
     }
     else{
+      logger.error(`Time: ${new Date()} Message: Requested companies.Token not valid.`);
       res.send({successful:false,message:'Neautorizovan pristup.'});
     }
     
@@ -163,17 +180,25 @@ app.get('/getPackage',async(req,res)=>
       try{
         const data=await repo.GetPackage(id);
         if(data!==null)
+        {
+          logger.info(`Time: ${new Date()} Message: Requested package with id ${id}`);
           res.send(data);
+        }
         else
+        {
+          logger.error(`Time: ${new Date()} Message: Requested package with id ${id}. Id not valid.`);
           res.send('error');
+        }
       }
       catch(e)
       {
         console.log(e);
+        logger.error(`Time: ${new Date()} Message: Requested package with id ${id}. Something went wrong.`);
         res.send("error");
       }
     }
     else{
+      logger.error(`Time: ${new Date()} Message: Requested package with id ${id}. Token not valid.`);
       res.send("error");
     }
     
@@ -185,6 +210,7 @@ app.get('/getPackage',async(req,res)=>
 });
 app.post('/buyPackage',jsonParser,async(req,res)=>
 {
+  console.log('buyPackage')
   const token=req.headers.authentication
   console.log(token);
   const c=jwt_decode(token);
@@ -192,16 +218,28 @@ app.post('/buyPackage',jsonParser,async(req,res)=>
   const data=await repo.GetPackage(id);
   if(data!==null)
   {
-    const pack=data;
-    const info={payment_id:'purch_'+id+'_'+c.id+'_'+uuid.v4(),amount:pack.price};
-      const data2=await axios.post(`${psp_api}/new-payment`,info);
-    //check token...
-    console.log("sending url");
-    res.send("http://localhost:3001/home?paymentId="+info.payment_id);
-    console.log("sent");
+    const user=await repo.GetUserByEmail(c.email);
+    if(user===null)
+    {
+      logger.error(`Time: ${new Date()} Message: Requested package with id ${id} purchase. Token not valid.`);
+      res.send('error');
+    }
+    else
+    {
+      const pack=data;
+      const info={payment_id:'purch_'+id+'_'+c.id+'_'+uuid.v4(),amount:pack.price};
+        const data2=await axios.post(`${psp_api}/new-payment`,info);
+      //check token...
+      console.log("sending url");
+      logger.info(`Time: ${new Date()} Message: Purchased package with id ${id}. Responding with psp url.`);
+      res.send("http://localhost:3001/home?paymentId="+info.payment_id);
+    }
   }
   else 
-  res.send('error');
+  {
+    logger.error(`Time: ${new Date()} Message: Requested package with id ${id} purchase. Id not valid.`);
+    res.send('error');
+  }
   
 });
 app.post('/buyPremium',jsonParser,async(req,res)=>
@@ -220,11 +258,14 @@ app.post('/buyPremium',jsonParser,async(req,res)=>
     const data2=await axios.post(`${psp_api}/new-payment`,info);
     console.log(data2.data);
     console.log("sending url");
+    logger.info(`Time: ${new Date()} Message: Requested premium purchase. Responding with psp url.`);
     res.send(data2.data.url+'?paymentId='+info.payment_id);
-    console.log("sent");
   }
   else 
-  res.send('error');
+  {
+    logger.error(`Time: ${new Date()} Message: Requested premium purchase. Token not valid.`);
+    res.send('error');
+  }
   
 });
 app.post('/updatePremium',jsonParser,async(req,res)=>
@@ -247,13 +288,15 @@ app.post('/updatePremium',jsonParser,async(req,res)=>
       }
       
     );
-   
-   
-  console.log('sending response:'+token2);
-  res.send({successful:true,token:token2});
+    logger.info(`Time: ${new Date()} Message: Premium membership payment successfuly executed. Responding with updated token.`);
+    console.log('sending response:'+token2);
+    res.send({successful:true,token:token2});
   }
   else 
-  res.send({successful:false,message:'Invalid data.'});
+  {
+    logger.error(`Time: ${new Date()} Message: Premium membership payment successfuly executed request. Token not valid.`);
+    res.send({successful:false,message:'Invalid data.'});
+  }
   
 });
 app.post('/registration',jsonParser,async(req,res)=>
@@ -269,6 +312,7 @@ app.post('/registration',jsonParser,async(req,res)=>
   const premium=false;
   if(password==='123' || password==='1234' || password==='12345' || password==='123456' || password==='12345678' )
   {
+    logger.error(`Time: ${new Date()} Message: Registration - input not valid.`);
     res.send({successful:false,message:'Choose different username and password.'});
   }
 try{
@@ -276,14 +320,18 @@ try{
   const check=await repo.GetUserByEmail(email);
   console.log(2);
   if(check!==null)
+  {
+    logger.error(`Time: ${new Date()} Message: Registration - input not valid.`);
     res.send({successful:false,message:'User with email already exist.'});
+  }
   const check2=await repo.GetUserByPib(pib);
   if(check2!==null)
   {
+    logger.error(`Time: ${new Date()} Message: Registration - input not valid.`);
     if(role==='user') res.send({successful:false,message:'User with jmbg already exist.'});
     else if(role==='company') res.send({successful:false,message:'User with pib already exist.'});
   }
-    
+  logger.info(`Time: ${new Date()} Message: ${name} successfuly registrated.`);
   const data= await repo.AddCompany({email,name,password,paid,pib,id,role,premium});
   console.log(3);
   id='reg_'+id;
@@ -293,11 +341,10 @@ try{
     const info={payment_id:id,amount:10};
     const data2=await axios.post(`${psp_api}/new-payment`,info);
     console.log(data2);
+    
     res.send({successful:true,id:id});
 
   }
-  console.log(4);
-  res.send({successful:true,message:''});
 }
 catch(e)
 {
@@ -315,17 +362,19 @@ app.post('/login',jsonParser,async(req,res)=>
     {
       const code=randomstring.generate(6);
       // if(codes.get(email)===null)
-      codes.set(email,code);
+      codes[email]=code;
       const messageStatus = transporter.sendMail({
         from: "agencija@gmail.com",
         to: email,
         subject: code,
         text: code,
       });
+      logger.info(`Time: ${new Date()} Message: Company ${email} logging in.`);
       res.send({successful:true});
     }
     else
     {
+      logger.error(`Time: ${new Date()} Message: Company ${name} unsuccessful login.`);
       res.send({successful:false,message:'Data not valid'});
     }
     
@@ -342,10 +391,10 @@ app.post('/login2',jsonParser,async(req,res)=>
   const email=req.body.email;
   const password=req.body.password;
   const code=req.body.code;
-  if(codes.get(email)!==code) res.send({successful:false,message:'Invalid authentication code'});
+  if(codes[email]!==code) res.send({successful:false,message:'Invalid authentication code'});
   else
   {
-    codes.delete(email);
+    delete codes[email];
     const data= await repo.GetUserByEmail(email);
     if(data.role==='company')
         {
@@ -366,9 +415,11 @@ app.post('/login2',jsonParser,async(req,res)=>
               }
             );
             console.log('sending response:'+token);
+            logger.info(`Time: ${new Date()} Message: Company ${email} successfuly logged in. Responding with token.`);
             res.send({successful:true,token:token});
           }
           else{
+            logger.error(`Time: ${new Date()} Message: Company ${email} unsuccessfuly login.`);
             res.send({successful:false,message:'Invalid email or password'});
           }
         }
@@ -396,6 +447,7 @@ app.post('/login2',jsonParser,async(req,res)=>
 });
 app.post('/paid-registration',async (req, res) => {
   const id=req.query.id;
+  logger.info(`Time: ${new Date()} Message: Registration paid. Payment id: ${id}`);
   console.log("update: ",id);
     try{
       const data= await repo.UpdatePaid(id);
@@ -423,8 +475,13 @@ app.get('/addPackageToCompany',async(req,res)=>
     const data =await repo.GetUserByEmail(c.email);
     if(data!=null && data.password===c.password)
     {
+      logger.info(`Time: ${new Date()} Message: Package successfuly paid. Payment id: ${paymentId}`);
         const data=await repo.AddPackageToCompany({company_id:companyId,package_id:Number(packageId),purchase_date:new Date()})
         res.send(data);
+    }
+    else{
+      logger.error(`Time: ${new Date()} Message: Package unsuccessfuly paid. Payment id: ${paymentId}.`);
+      res.send('error');
     }
   }
     catch(e)
@@ -433,14 +490,4 @@ app.get('/addPackageToCompany',async(req,res)=>
       res.send('error');
     }
 });
-app.listen(6001, () => {
-  console.log(`Server Started on 6001`);
-});
 
-
-// public int id { get; set; }
-// public string name { get; set; }
-// public string pib { get; set; }
-// public string email { get; set; }
-// public string password { get; set; }
-// public bool paid { get; set; }

@@ -49,8 +49,6 @@ exports.GetPackage=async function(id)
         .from('packages')
         .select()
         .eq('id',id);
-    console.log(data);
-    console.log(error);
     if(data!=null && data.length>0)
         return data[0];
     else 
